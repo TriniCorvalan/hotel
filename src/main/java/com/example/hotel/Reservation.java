@@ -39,22 +39,4 @@ public class Reservation {
     public List<Room> getRooms() {
         return rooms;
     }
-    public void setId(String id) {
-        this.id = id;
-    }
-    public void setStartDate(String startDate) {
-        this.startDate = startDate;
-    }
-    public void setEndDate(String endDate) {
-        this.endDate = endDate;
-    }
-    public void setGuestName(String guestName) {
-        this.guestName = guestName;
-    }
-    public void setGuestEmail(String guestEmail) {
-        this.guestEmail = guestEmail;
-    }
-    public void setRooms(List<Room> rooms) {
-        this.rooms = rooms;
-    }
 }

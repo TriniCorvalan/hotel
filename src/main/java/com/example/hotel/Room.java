@@ -21,13 +21,4 @@ public class Room {
     public String getPrice() {
         return price;
     }
-    public void setCapacity(String capacity) {
-        this.capacity = capacity;
-    }
-    public void setPrice(String price) {
-        this.price = price;
-    }
-    public void setNumber(String number) {
-        this.number = number;
-    }
 }
