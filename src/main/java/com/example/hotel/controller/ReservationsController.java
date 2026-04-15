@@ -1,9 +1,11 @@
 package com.example.hotel.controller;
 
+import java.time.LocalDate;
 import java.util.List;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -13,8 +15,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.example.hotel.model.Reservation;
-import com.example.hotel.model.Room;
+import com.example.hotel.model.*;
 import com.example.hotel.service.ReservationService;
 
 @RestController
@@ -37,9 +38,9 @@ public class ReservationsController {
         return reservationService.getReservation(id);
     }
     
-    // Obtiene las habitaciones disponibles para una fecha de inicio y fin
+    /** Disponibilidad para check-in {@code startDate} y check-out {@code endDate} (fin exclusivo). */
     @GetMapping("/rooms_available/{startDate}/{endDate}")
-    public List<Room> getRoomsAvailable(@PathVariable String startDate, @PathVariable String endDate) {
+    public List<Room> getRoomsAvailable(@PathVariable LocalDate startDate, @PathVariable LocalDate endDate) {
         return reservationService.getRoomsAvailable(startDate, endDate);
     }
 

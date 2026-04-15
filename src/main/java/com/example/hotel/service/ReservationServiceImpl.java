@@ -1,5 +1,6 @@
 package com.example.hotel.service;
 
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -17,6 +18,7 @@ public class ReservationServiceImpl implements ReservationService {
     private ReservationRepository reservationRepository;
     @Autowired
     private RoomRepository roomRepository;
+   
     @Override
     public List<Reservation> getReservations() {
         return reservationRepository.findAll();
@@ -27,8 +29,13 @@ public class ReservationServiceImpl implements ReservationService {
         return reservationRepository.findById(id).orElse(null);
     }
     
+    /**
+     * Habitaciones libres para un posible check-in/check-out.
+     * Tanto la consulta como cada reserva usan el mismo criterio hotelero: noche ocupada en
+     * {@code [startDate, endDate)} (check-in incluido, check-out excluido).
+     */
     @Override
-    public List<Room> getRoomsAvailable(String startDate, String endDate) {
+    public List<Room> getRoomsAvailable(LocalDate startDate, LocalDate endDate) {
         List<Room> availableRooms = new ArrayList<>();
         List<Reservation> reservations = getReservations();
         List<Room> rooms = roomRepository.findAll();
@@ -45,9 +52,10 @@ public class ReservationServiceImpl implements ReservationService {
                 if (!reservedForThisRoom) {
                     continue;
                 }
-                // Solapamiento: [start_date, end_date] ∩ [reserva.inicio, reserva.fin] ≠ ∅
-                if (reservation.getStartDate().compareTo(endDate) <= 0
-                        && reservation.getEndDate().compareTo(startDate) >= 0) {
+                // Solapamiento de [reserva.inicio, reserva.fin) con [startDate, endDate):
+                // reserva.inicio < endDate && reserva.fin > startDate
+                if (reservation.getStartDate().isBefore(endDate)
+                        && reservation.getEndDate().isAfter(startDate)) {
                     occupied = true;
                     break;
                 }
