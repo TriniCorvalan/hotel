@@ -45,7 +45,7 @@ public class ReservationsController {
     }
 
     // Crea una nueva reserva
-    @PostMapping("/reservation/{id}")
+    @PostMapping("/reservation")
     public Reservation createReservation(@RequestBody Reservation reservation) {
         logger.debug("Creating reservation: {}", reservation);
         return reservationService.createReservation(reservation);
