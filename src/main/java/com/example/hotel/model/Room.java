@@ -16,15 +16,12 @@ public class Room {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id")
     private Long id;
-    private String number;
+
+    /** Número de habitación (columna {@code room_number}: {@code NUMBER} es palabra reservada en Oracle). */
+    @Column(name = "room_number")
+    private String roomNumber;
     private int price;
     private int capacity;
-
-    public Room(String number, int price, int capacity) {
-        this.number = number;
-        this.price = price;
-        this.capacity = capacity;
-    }
 
     public Room() {
     }

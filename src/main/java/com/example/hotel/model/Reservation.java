@@ -4,7 +4,9 @@ import java.time.LocalDate;
 import java.util.List;
 
 import jakarta.persistence.*;
-import jakarta.validation.constraints.*;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
 import lombok.Data;
 import org.springframework.format.annotation.DateTimeFormat;
 
@@ -18,14 +20,14 @@ public class Reservation {
     private Long id;
 
     /** Check-in (primer día ocupado). */
-    @NotBlank(message = "La fecha de inicio es requerida")
-    @DateTimeFormat(pattern = "dd-MM-yyyy")
+    @NotNull(message = "La fecha de inicio es requerida")
+    @DateTimeFormat(pattern = "yyyy-MM-dd")
     @Column(name = "start_date")
     private LocalDate startDate;
 
     /** Check-out (día de salida; la habitación queda libre ese día para un nuevo check-in). */
-    @NotBlank(message = "La fecha de fin es requerida")
-    @DateTimeFormat(pattern = "dd-MM-yyyy")
+    @NotNull(message = "La fecha de fin es requerida")
+    @DateTimeFormat(pattern = "yyyy-MM-dd")
     @Column(name = "end_date")
     private LocalDate endDate;
 
@@ -43,16 +45,6 @@ public class Reservation {
             joinColumns = @JoinColumn(name = "reservation_id"),
             inverseJoinColumns = @JoinColumn(name = "room_id"))
     private List<Room> rooms;
-
-    public Reservation(Long id, LocalDate startDate, LocalDate endDate, String guestName,
-            String guestEmail, List<Room> rooms) {
-        this.id = id;
-        this.startDate = startDate;
-        this.endDate = endDate;
-        this.guestName = guestName;
-        this.guestEmail = guestEmail;
-        this.rooms = rooms;
-    }
 
     public Reservation() {
     }
