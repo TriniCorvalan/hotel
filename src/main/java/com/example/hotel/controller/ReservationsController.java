@@ -8,6 +8,7 @@ import org.slf4j.LoggerFactory;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.CrossOrigin;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -34,13 +35,14 @@ public class ReservationsController {
     public List<Reservation> getReservations() {
         return reservationService.getReservations();
     }
+
     // Obtiene una reserva por su id
     @GetMapping("/reservations/{id}")
     public Reservation getReservation(@PathVariable Long id) {
         return reservationService.getReservation(id);
     }
     
-    /** Disponibilidad para check-in {@code startDate} y check-out {@code endDate} (fin exclusivo). */
+    // Disponibilidad para check-in {@code startDate} y check-out {@code endDate} (fin exclusivo).
     @GetMapping("/rooms_available/{startDate}/{endDate}")
     public List<Room> getRoomsAvailable(@PathVariable LocalDate startDate, @PathVariable LocalDate endDate) {
         return reservationService.getRoomsAvailable(startDate, endDate);
@@ -53,8 +55,15 @@ public class ReservationsController {
         return reservationService.createReservation(reservation);
     }
 
+    // Actualiza una reserva existente
     @PutMapping("/reservation/{id}")
     public Reservation updateReservation(@PathVariable Long id, @RequestBody Reservation reservation) {
         return reservationService.updateReservation(id, reservation);
+    }
+
+    // Elimina una reserva existente
+    @DeleteMapping("/reservation/{id}")
+    public void deleteReservation(@PathVariable Long id) {
+        reservationService.deleteReservation(id);
     }
 }
