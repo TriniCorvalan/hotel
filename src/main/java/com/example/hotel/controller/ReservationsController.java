@@ -17,6 +17,8 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.example.hotel.model.*;
 import com.example.hotel.service.ReservationService;
+import org.springframework.web.bind.annotation.PutMapping;
+
 
 @RestController
 @RequestMapping("/api/v1")
@@ -49,5 +51,10 @@ public class ReservationsController {
     public Reservation createReservation(@RequestBody Reservation reservation) {
         logger.debug("Creating reservation: {}", reservation);
         return reservationService.createReservation(reservation);
+    }
+
+    @PutMapping("/reservation/{id}")
+    public Reservation updateReservation(@PathVariable Long id, @RequestBody Reservation reservation) {
+        return reservationService.updateReservation(id, reservation);
     }
 }

@@ -44,7 +44,7 @@ public class ReservationServiceImpl implements ReservationService {
         List<Reservation> reservations = getReservations();
         List<Room> rooms = roomRepository.findAll();
         for (Room room : rooms) {
-            if (!isRoomOccupiedInPeriod(room, startDate, endDate, reservations)) {
+            if (!isRoomOccupiedInPeriod(room, startDate, endDate, reservations, null)) {
                 availableRooms.add(room);
             }
         }
@@ -54,10 +54,16 @@ public class ReservationServiceImpl implements ReservationService {
     /**
      * {@code true} si la habitación tiene al menos una noche en común con
      * {@code [startDate, endDate)} en alguna reserva existente.
+     *
+     * @param excludeReservationId si no es {@code null}, se ignora esa reserva (PUT: no chocar
+     *        con la propia fila que se edita).
      */
     private boolean isRoomOccupiedInPeriod(Room room, LocalDate startDate, LocalDate endDate,
-            List<Reservation> reservations) {
+            List<Reservation> reservations, Long excludeReservationId) {
         for (Reservation reservation : reservations) {
+            if (excludeReservationId != null && excludeReservationId.equals(reservation.getId())) {
+                continue;
+            }
             if (reservation.getRooms() == null) {
                 continue;
             }
@@ -103,52 +109,104 @@ public class ReservationServiceImpl implements ReservationService {
                     "Debe indicar al menos una habitación");
         }
 
-        // 5) Preparar datos para el recorrido: números ya vistos, lista final y reservas actuales.
-        Set<String> seen = new LinkedHashSet<>();
-        List<Room> assigned = new ArrayList<>();
-        List<Reservation> existing = getReservations();
-
-        // 6) Por cada habitación pedida: validar, buscar en BD y comprobar solapes con otras reservas.
-        for (Room requested : reservation.getRooms()) {
-            // 6a) La fila no puede ser nula ni venir sin número de habitación usable.
-            if (requested == null || requested.getRoomNumber() == null || requested.getRoomNumber().isBlank()) {
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                        "Cada habitación debe tener un número válido");
-            }
-            // 6b) Normalizar espacios en el número (ej. " 101 " → "101").
-            String roomNumber = requested.getRoomNumber().trim();
-
-            // 6c) Evitar que la misma petición reserve dos veces la misma habitación.
-            if (!seen.add(roomNumber)) {
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                        "No se puede repetir la misma habitación en la misma reserva: " + roomNumber);
-            }
-
-            // 6d) Traer la entidad Room real desde la base (JPA necesita la instancia gestionada).
-            Room managed = roomRepository.findByRoomNumber(roomNumber)
-                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
-                            "No existe la habitación: " + roomNumber));
-
-            // 6e) Si ya hay otra reserva que cruza esas fechas para esa habitación, rechazar (conflicto).
-            if (isRoomOccupiedInPeriod(managed, start, end, existing)) {
-                throw new ResponseStatusException(HttpStatus.CONFLICT,
-                        "La habitación no está disponible en esas fechas: " + roomNumber);
-            }
-
-            // 6f) Esta habitación pasó todas las pruebas; se agrega a la lista que se guardará.
-            assigned.add(managed);
-        }
-
-        // 7) Sustituir los “stub” del JSON por las habitaciones correctas asociadas a la reserva.
-        reservation.setRooms(assigned);
+        // 5–6) Sustituir stubs del JSON por entidades {@link Room} gestionadas y validar solapes.
+        reservation.setRooms(validateAndResolveRooms(reservation, start, end, null));
 
         // 8) Persistir y devolver la reserva ya con id generado por la base de datos.
         return reservationRepository.save(reservation);
     }
     
+    /**
+     * Actualiza una reserva existente identificada por {@code id} en la URL.
+     * Primero busca esa fila en base de datos; si no existe, error 404.
+     * Lee fechas y datos de huésped desde el cuerpo de la petición (no crea una entidad nueva desde cero).
+     * Valida que inicio y fin vengan informados y que el inicio sea anterior al fin.
+     * Copia fechas, nombre y correo del cuerpo sobre la entidad ya cargada (la que JPA conoce por id).
+     * Resuelve habitaciones con la misma lógica que en alta: números válidos, sin duplicados en el body, existencia en BD.
+     * Al comprobar solapes ignora la propia reserva {@code id}, para no tratarse como conflicto consigo misma.
+     * Guarda la entidad {@code existing} actualizada y la devuelve.
+     *
+     * @param id identificador de la reserva a modificar (coincide con la ruta {@code PUT .../reservation/{id}}).
+     * @param reservation cuerpo con los nuevos valores (fechas, huésped, lista de habitaciones).
+     * @return la reserva persistida tras el cambio.
+     * @throws ResponseStatusException 404 si no hay reserva con ese id.
+     * @throws ResponseStatusException 400 si faltan fechas, el orden es inválido o la lista de habitaciones no cumple reglas.
+     * @throws ResponseStatusException 404 si algún número de habitación del cuerpo no existe.
+     * @throws ResponseStatusException 409 si alguna habitación quedaría ocupada por otra reserva en esas fechas.
+     */
     @Override
     public Reservation updateReservation(Long id, Reservation reservation) {
-        return reservationRepository.save(reservation);
+        // 1) Localizar la reserva que realmente vamos a mutar; el id viene de la URL.
+        Reservation existing = reservationRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
+                        "Reserva no encontrada: " + id));
+
+        // 2) Tomar las nuevas fechas del JSON (aún sin aplicar al objeto persistido).
+        LocalDate start = reservation.getStartDate();
+        LocalDate end = reservation.getEndDate();
+
+        // 3) Mismas reglas que en creación: ambas fechas obligatorias.
+        if (start == null || end == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Las fechas de inicio y fin son obligatorias");
+        }
+
+        // 4) El intervalo debe ser coherente (al menos una noche).
+        if (!start.isBefore(end)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "La fecha de inicio debe ser anterior a la fecha de fin");
+        }
+
+        // 5) Volcar datos editables sobre la entidad gestionada (mantiene el mismo id y metadatos de JPA).
+        existing.setStartDate(start);
+        existing.setEndDate(end);
+        existing.setGuestName(reservation.getGuestName());
+        existing.setGuestEmail(reservation.getGuestEmail());
+
+        // 6) Resolver habitaciones y disponibilidad; se excluye esta reserva al buscar choques con otras filas.
+        existing.setRooms(validateAndResolveRooms(reservation, start, end, id));
+
+        // 7) Persistir los cambios sobre la fila existente y devolver el estado guardado.
+        return reservationRepository.save(existing);
+    }
+
+    /**
+     * Convierte cada habitación del cuerpo (solo número u otros campos parciales) en filas
+     * {@link Room} persistidas y comprueba disponibilidad. {@code excludeReservationId}
+     */
+    private List<Room> validateAndResolveRooms(Reservation reservation, LocalDate start, LocalDate end,
+            Long excludeReservationId) {
+        if (reservation.getRooms() == null || reservation.getRooms().isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Debe indicar al menos una habitación");
+        }
+
+        Set<String> seen = new LinkedHashSet<>();
+        List<Room> assigned = new ArrayList<>();
+        List<Reservation> existing = getReservations();
+
+        for (Room requested : reservation.getRooms()) {
+            if (requested == null || requested.getRoomNumber() == null || requested.getRoomNumber().isBlank()) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "Cada habitación debe tener un número válido");
+            }
+            String roomNumber = requested.getRoomNumber().trim();
+            if (!seen.add(roomNumber)) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "No se puede repetir la misma habitación en la misma reserva: " + roomNumber);
+            }
+
+            Room managed = roomRepository.findByRoomNumber(roomNumber)
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
+                            "No existe la habitación: " + roomNumber));
+
+            if (isRoomOccupiedInPeriod(managed, start, end, existing, excludeReservationId)) {
+                throw new ResponseStatusException(HttpStatus.CONFLICT,
+                        "La habitación no está disponible en esas fechas: " + roomNumber);
+            }
+            assigned.add(managed);
+        }
+        return assigned;
     }
 
     @Override
