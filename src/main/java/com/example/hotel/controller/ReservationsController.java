@@ -44,8 +44,10 @@ public class ReservationsController {
     
     // Disponibilidad para check-in {@code startDate} y check-out {@code endDate} (fin exclusivo).
     @GetMapping("/rooms_available/{startDate}/{endDate}")
-    public List<Room> getRoomsAvailable(@PathVariable LocalDate startDate, @PathVariable LocalDate endDate) {
-        return reservationService.getRoomsAvailable(startDate, endDate);
+    public List<Room> getRoomsAvailable(@PathVariable String startDate, @PathVariable String endDate) {
+        LocalDate start = LocalDate.parse(startDate);
+        LocalDate end = LocalDate.parse(endDate);
+        return reservationService.getRoomsAvailable(start, end);
     }
 
     // Crea una nueva reserva
